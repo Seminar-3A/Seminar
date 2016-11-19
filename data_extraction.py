@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from pandas.io.data import DataReader
 from datetime import datetime
-from pandas import DataFrame
+import sys
 
+from pandas import DataFrame
+from pandas.io.data import DataReader
 import pandas as pd
 import numpy as np
-import sys
 import matplotlib.pyplot as plt
 
 
@@ -36,7 +36,7 @@ def get_raw_data(stock_name, start, stop, features=main_feat, target="variation"
         dates = raw_data.index
         raw_data.loc[dates[1:], 'Return_Close'] = np.log(
             np.array(raw_data.loc[dates[1:], 'Close']) / np.array(raw_data.loc[dates[:-1], 'Close']))
-    elif target == "variation":
+    else:
         raw_data['Variation_Close'] = 0
         dates = raw_data.index
         raw_data.loc[dates[1:], 'Variation_Close'] = 100 * (
@@ -64,11 +64,12 @@ def frmt_raw_data(stock_name, start, stop, raw_data=DataFrame(), features=main_f
     if raw_data.columns[-1] == "Return_Close":
         raw_data.Return_Close = raw_data.Return_Close.shift(-1)
         raw_data.columns = [main_feat + ['Tmrw_return']]
-    elif raw_data.columns[-1] == "Variation_Close":
+        raw_data = raw_data.dropna()
+    else:
         raw_data.Variation_Close = raw_data.Variation_Close.shift(-1)
         raw_data.columns = [main_feat + ['Tmrw_variation']]
+        raw_data = raw_data.dropna()
         raw_data["variation_classes"] = divide_in_classes(raw_data["Tmrw_variation"], limit_classes)
-    raw_data = raw_data.dropna()
     raw_data['Ticker'] = stock_name
 
     return raw_data
