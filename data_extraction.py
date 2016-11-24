@@ -7,7 +7,9 @@ from pandas import DataFrame
 from pandas.io.data import DataReader
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+
+from utils import subdivide_data
+from random_forest import fitting_forest
 
 
 main_feat = ['High', 'Low', 'Close']
@@ -114,7 +116,6 @@ def get_multiple_inputs(stock_list, start, stop):
 
     return df_input
 
-
 if __name__ == "__main__":
     stock_name = sys.argv[1]
     start = sys.argv[2]
@@ -124,3 +125,11 @@ if __name__ == "__main__":
                               features=main_feat, target="Variation_Close", limit_classes=default_limit_classes)
     print("Done downloading and formatting the input data, saving it...")
     frmt_data.to_csv("Input_data.csv")
+
+    # Fitting the Random Forest
+    input_X = frmt_data[main_feat]
+    input_Y = frmt_data['variation_classes']
+    data_subdivided = subdivide_data(input_X, input_Y, test_size=0.3)
+
+    fit_forest, score, prediction = fitting_forest(data_subdivided, n_estimators=100)
+    print("score of the random forest fitting is {}".format(score))
