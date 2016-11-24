@@ -14,7 +14,8 @@ main_feat = ['High', 'Low', 'Close']
 pd.set_option('chained_assignment', None)
 default_limit_classes = ["-inf", -5, -2, 0, 2, 5, "+inf"]
 
-def get_raw_data(stock_name, start, stop, features=main_feat, target="variation"):
+
+def get_raw_data(stock_name, start, stop, target="Variation_Close", features=main_feat):
 
     """
     :param stock_name: string
@@ -46,7 +47,8 @@ def get_raw_data(stock_name, start, stop, features=main_feat, target="variation"
     return raw_data
 
 
-def frmt_raw_data(stock_name, start, stop, raw_data=DataFrame(), features=main_feat, target="variation", limit_classes=default_limit_classes):
+def frmt_raw_data(stock_name, start, stop, raw_data=DataFrame(),
+                  features=main_feat, target="Variation_Close", limit_classes=default_limit_classes):
     """
 
     :param stock_name: string
@@ -58,10 +60,11 @@ def frmt_raw_data(stock_name, start, stop, raw_data=DataFrame(), features=main_f
     :param limit_classes: array containing limits of the daily close variation classes
     :return: format the raw history data and add to each observation the actual prediction of close return
     """
-    if (raw_data.empty):
-        raw_data = get_raw_data(stock_name, start, stop, features, target)
+    if raw_data.empty:
+        raw_data = get_raw_data(stock_name, start, stop, target, features)
 
     if raw_data.columns[-1] == "Return_Close":
+
         raw_data.Return_Close = raw_data.Return_Close.shift(-1)
         raw_data.columns = [main_feat + ['Tmrw_return']]
         raw_data = raw_data.dropna()
@@ -81,8 +84,9 @@ def divide_in_classes(variation_vector, limit_classes=default_limit_classes):
     :param limit_classes: vector containing the limits of the different classes of daily close variation
     :return: vector of strings
     """
-    classes = ["Between "+str(limit_classes[i])+" and "+str(limit_classes[i+1]) for i in range(0, len(limit_classes)-1)]
-    classes_col = np.empty(len(variation_vector),dtype=object)
+    classes = ["Between " + str(limit_classes[i]) + " and " + str(limit_classes[i + 1]) for i in range(0, len(limit_classes) - 1)]
+
+    classes_col = np.empty(len(variation_vector), dtype=object)
     for i in range(0, len(variation_vector)):
         if variation_vector[i] <= limit_classes[1]:
             classes_col[i] = classes[0]
@@ -115,7 +119,8 @@ if __name__ == "__main__":
     stock_name = sys.argv[1]
     start = sys.argv[2]
     stop = sys.argv[3]
-    raw_data = get_raw_data(stock_name, start, stop, features=main_feat)
-    frmt_data = frmt_raw_data(stock_name, start, stop, raw_data)
+    raw_data = get_raw_data(stock_name, start, stop, target="Variation_Close", features=main_feat)
+    frmt_data = frmt_raw_data(stock_name, start, stop, raw_data,
+                              features=main_feat, target="Variation_Close", limit_classes=default_limit_classes)
     print("Done downloading and formatting the input data, saving it...")
     frmt_data.to_csv("Input_data.csv")
