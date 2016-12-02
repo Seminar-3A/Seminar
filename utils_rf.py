@@ -1,6 +1,3 @@
-import pandas as pd
-
-
 def subdivide_data(input_X, input_Y, test_size=0.3):
     """
 
