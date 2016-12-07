@@ -28,8 +28,11 @@ def get_raw_data(stock_name, start, stop, features=main_feat):
     """
 
     start_date = dt.datetime.strptime(start, "%Y-%m-%d")
-    stop_date_plus_one = dt.datetime.strptime(stop, "%Y-%m-%d") + dt.timedelta(days=1)
-    dr = DataReader(stock_name, 'yahoo', start_date, stop_date_plus_one)
+    stop_date = dt.datetime.strptime(stop, "%Y-%m-%d")
+    # add a working day to have tomorrow's return
+    stop_date = stop_date + pd.tseries.offsets.BDay(1)
+
+    dr = DataReader(stock_name, 'yahoo', start_date, stop_date)
 
     raw_data = dr[features]
     raw_data['Return_Close'] = 0
@@ -40,6 +43,42 @@ def get_raw_data(stock_name, start, stop, features=main_feat):
     raw_data.Return_Close = raw_data.Return_Close.shift(-1)
     raw_data.columns = [features + ['Tmrw_return']]
     raw_data = raw_data.dropna()
+
+    return raw_data
+
+
+def get_data_with_past(stock_name, start, stop, features=main_feat, nb_past_days = 0):
+    """
+    :param stock_name: string
+    :param start: string
+    :param stop: string
+    :param features: array of strings
+    :param nb_past_days : int
+    :return: Extract History prices from start until stop, filtrate by main features and add past days data as variables
+
+    """
+
+    start_date = dt.datetime.strptime(start, "%Y-%m-%d")
+    # if it's a holiday, start at the next working day
+    if not bool(len(pd.bdate_range(start_date, start_date))):
+        start_date = start_date + pd.tseries.offsets.BDay(1)
+
+    stop_date = dt.datetime.strptime(stop, "%Y-%m-%d")
+    # if it's a holiday, stop at the previous working day
+    if not bool(len(pd.bdate_range(stop_date, stop_date))):
+        stop_date = stop_date - pd.tseries.offsets.BDay(1)
+
+    start = start_date.strftime("%Y-%m-%d")
+    stop = stop_date.strftime("%Y-%m-%d")
+    raw_data = get_raw_data(stock_name, start, stop, features)
+
+    for i in range(1, nb_past_days+1):
+        new_start = (dt.datetime.strptime(start, "%Y-%m-%d") - pd.tseries.offsets.BDay(i)).strftime("%Y-%m-%d")
+        new_stop = (dt.datetime.strptime(stop, "%Y-%m-%d") - pd.tseries.offsets.BDay(i)).strftime("%Y-%m-%d")
+        added_data = get_raw_data(stock_name, new_start, new_stop, features)
+        added_data.index = raw_data.index
+        added_data.columns = [str(col) + "_" + str(i) for col in added_data.columns]
+        raw_data = pd.concat([raw_data, added_data], axis=1)
 
     return raw_data
 
