@@ -88,7 +88,7 @@ def get_data_with_past(stock_name, start, stop, features=main_feat, nb_past_days
             new_stop = (dt.datetime.strptime(new_stop, "%Y-%m-%d") - pd.tseries.offsets.BDay(1)).strftime("%Y-%m-%d")
 
         added_data = get_raw_data(stock_name, new_start, new_stop, features)
-        #Checking the holidays
+        # Checking the holidays
         k = len(added_data.index) - len(raw_data.index)
         if k > 0:
             # added data is too long, we delete the last row
@@ -132,10 +132,8 @@ def frmt_raw_data(stock_name, raw_data, ret_ranges=default_limit_classes):
 
     """
     :param stock_name: string
-    :param start: string
-    :param stop: string
     :param raw_data: DataFrame
-    :param features: array of strings
+    :param ret_ranges: array of integers
     :return: Format the raw history data and add to each observation the actual prediction of close return
 
     """
