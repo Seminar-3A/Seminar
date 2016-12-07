@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import datetime as dt
 import sys
+import holidays
 
 from pandas import DataFrame
 from pandas.io.data import DataReader
@@ -14,6 +15,7 @@ from random_forest import fitting_forest
 
 
 pd.set_option('chained_assignment', None)
+us_holidays = holidays.UnitedStates()
 
 
 def get_raw_data(stock_name, start, stop, features=main_feat):
@@ -31,6 +33,9 @@ def get_raw_data(stock_name, start, stop, features=main_feat):
     stop_date = dt.datetime.strptime(stop, "%Y-%m-%d")
     # add a working day to have tomorrow's return
     stop_date = stop_date + pd.tseries.offsets.BDay(1)
+    # if it's a holiday, stop at the next working day
+    if stop_date in us_holidays:
+        stop_date = stop_date + pd.tseries.offsets.BDay(1)
 
     dr = DataReader(stock_name, 'yahoo', start_date, stop_date)
 
@@ -60,12 +65,12 @@ def get_data_with_past(stock_name, start, stop, features=main_feat, nb_past_days
 
     start_date = dt.datetime.strptime(start, "%Y-%m-%d")
     # if it's a holiday, start at the next working day
-    if not bool(len(pd.bdate_range(start_date, start_date))):
+    if (not bool(len(pd.bdate_range(start_date, start_date)))) or (start_date in us_holidays):
         start_date = start_date + pd.tseries.offsets.BDay(1)
 
     stop_date = dt.datetime.strptime(stop, "%Y-%m-%d")
     # if it's a holiday, stop at the previous working day
-    if not bool(len(pd.bdate_range(stop_date, stop_date))):
+    if (not bool(len(pd.bdate_range(stop_date, stop_date)))) or (stop_date in us_holidays) :
         stop_date = stop_date - pd.tseries.offsets.BDay(1)
 
     start = start_date.strftime("%Y-%m-%d")
@@ -74,14 +79,24 @@ def get_data_with_past(stock_name, start, stop, features=main_feat, nb_past_days
 
     for i in range(1, nb_past_days+1):
         new_start = (dt.datetime.strptime(start, "%Y-%m-%d") - pd.tseries.offsets.BDay(i)).strftime("%Y-%m-%d")
+        # if it's a holiday, start at the previous working day
+        if new_start in us_holidays:
+            new_start = (dt.datetime.strptime(new_start, "%Y-%m-%d") - pd.tseries.offsets.BDay(1)).strftime("%Y-%m-%d")
         new_stop = (dt.datetime.strptime(stop, "%Y-%m-%d") - pd.tseries.offsets.BDay(i)).strftime("%Y-%m-%d")
+        # if it's a holiday, stop at the previous working day
+        if new_stop in us_holidays:
+            new_stop = (dt.datetime.strptime(new_stop, "%Y-%m-%d") - pd.tseries.offsets.BDay(1)).strftime("%Y-%m-%d")
+
         added_data = get_raw_data(stock_name, new_start, new_stop, features)
-        # Checking the holidays
-        k = len(added_data.index ) - len(raw_data.index)
+        #Checking the holidays
+        k = len(added_data.index) - len(raw_data.index)
         if k > 0:
-            # enlève dernière ligne
+            # added data is too long, we delete the last row
+            added_data = added_data.drop(added_data.index[len(added_data) - 1])
         elif k < 0:
-            # Changer start_date et retelecharger les donnees
+            # added data is not long enough, we start one day before
+            new_start = (dt.datetime.strptime(new_start, "%Y-%m-%d") - pd.tseries.offsets.BDay(1)).strftime("%Y-%m-%d")
+            added_data = get_raw_data(stock_name, new_start, new_stop, features)
 
         added_data.index = raw_data.index
         added_data.columns = [str(col) + "_" + str(i) for col in added_data.columns]
