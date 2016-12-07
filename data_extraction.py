@@ -76,6 +76,13 @@ def get_data_with_past(stock_name, start, stop, features=main_feat, nb_past_days
         new_start = (dt.datetime.strptime(start, "%Y-%m-%d") - pd.tseries.offsets.BDay(i)).strftime("%Y-%m-%d")
         new_stop = (dt.datetime.strptime(stop, "%Y-%m-%d") - pd.tseries.offsets.BDay(i)).strftime("%Y-%m-%d")
         added_data = get_raw_data(stock_name, new_start, new_stop, features)
+        # Checking the holidays
+        k = len(added_data.index ) - len(raw_data.index)
+        if k > 0:
+            # enlève dernière ligne
+        elif k < 0:
+            # Changer start_date et retelecharger les donnees
+
         added_data.index = raw_data.index
         added_data.columns = [str(col) + "_" + str(i) for col in added_data.columns]
         raw_data = pd.concat([raw_data, added_data], axis=1)
