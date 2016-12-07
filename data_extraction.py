@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from datetime import datetime
+import datetime as dt
 import sys
 
 from pandas import DataFrame
@@ -27,15 +27,19 @@ def get_raw_data(stock_name, start, stop, features=main_feat):
 
     """
 
-    start, stop = [int(el) for el in start.split('-')], [int(el) for el in stop.split('-')]
-
-    dr = DataReader(stock_name, 'yahoo', datetime(start[0], start[1], start[2]), datetime(stop[0], stop[1], stop[2]))
+    start_date = dt.datetime.strptime(start, "%Y-%m-%d")
+    stop_date_plus_one = dt.datetime.strptime(stop, "%Y-%m-%d") + dt.timedelta(days=1)
+    dr = DataReader(stock_name, 'yahoo', start_date, stop_date_plus_one)
 
     raw_data = dr[features]
     raw_data['Return_Close'] = 0
     dates = raw_data.index
     raw_data.loc[dates[1:], 'Return_Close'] = np.log(
         np.array(raw_data.loc[dates[1:], 'Close']) / np.array(raw_data.loc[dates[:-1], 'Close']))
+
+    raw_data.Return_Close = raw_data.Return_Close.shift(-1)
+    raw_data.columns = [features + ['Tmrw_return']]
+    raw_data = raw_data.dropna()
 
     return raw_data
 
@@ -77,9 +81,6 @@ def frmt_raw_data(stock_name, start, stop, ret_ranges=default_limit_classes, raw
     if raw_data.empty:
         raw_data = get_raw_data(stock_name, start, stop,features)
 
-    raw_data.Return_Close = raw_data.Return_Close.shift(-1)
-    raw_data.columns = [main_feat + ['Tmrw_return']]
-    raw_data = raw_data.dropna()
     raw_data['Ticker'] = stock_name
     frmt_data = get_ret_class(raw_data, ret_ranges)
 
