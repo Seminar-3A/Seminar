@@ -107,4 +107,17 @@ def adjust_ret(tmp_table,ret_ranges):
     :return: Convert each return class k into an array with zeros and one in the kth index
 
     """
-    return np.array([[int(tmp_table['Tmrw_Class'].iloc[obs] == cls) for cls in range(len(ret_ranges)+1)] for obs in range(tmp_table.shape[0])])
+    return np.array([[int(tmp_table['Tmrw_Class'].iloc[obs] == cls) for cls in range(len(ret_ranges))] for obs in range(tmp_table.shape[0])])
+
+
+def get_sharpe_per_bckt(pred_table,bucket_pos):
+
+    stats_df = pred_table[(pred_table["Pred_Class"] == bucket_pos)][["Tmrw_return", "expect_ret"]]
+    stats_df['diff'] = stats_df['Tmrw_return'] - stats_df['expect_ret']
+    mean_ = np.mean(stats_df['diff'])
+    std_ = np.std(stats_df['diff'])
+
+    if std_ > 0:
+        return np.sqrt(stats_df.shape[0]) * (np.abs(mean_) / std_)
+
+    return np.nan

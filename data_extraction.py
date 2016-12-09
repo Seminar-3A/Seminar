@@ -4,15 +4,11 @@ import datetime as dt
 import sys
 import holidays
 
-from pandas import DataFrame
 from pandas.io.data import DataReader
 import pandas as pd
 import numpy as np
 
-from constantes import main_feat, default_limit_classes, yclass_label
-from utils_rf import subdivide_data
-from random_forest import fitting_forest
-
+from constantes import main_feat, default_limit_classes, yclass_label,quartile_ranges
 
 pd.set_option('chained_assignment', None)
 us_holidays = holidays.UnitedStates()
@@ -52,57 +48,54 @@ def get_raw_data(stock_name, start, stop, features=main_feat):
     return raw_data
 
 
-def get_data_with_past(stock_name, start, stop, features=main_feat, nb_past_days=0):
-    """
-    :param stock_name: string
-    :param start: string
-    :param stop: string
-    :param features: array of strings
-    :param nb_past_days : int
-    :return: Extract History prices from start until stop, filtrate by main features and add past days data as variables
+def add_feat(rw_data, p_days):
 
     """
+    :param rw_data:
+    :param p_days:
+    :param features:
+    :return:
+    """
 
-    start_date = dt.datetime.strptime(start, "%Y-%m-%d")
-    # if it's a holiday, start at the next working day
-    if (not bool(len(pd.bdate_range(start_date, start_date)))) or (start_date in us_holidays):
-        start_date = start_date + pd.tseries.offsets.BDay(1)
+    if p_days == 0:
+        return rw_data
 
-    stop_date = dt.datetime.strptime(stop, "%Y-%m-%d")
-    # if it's a holiday, stop at the previous working day
-    if (not bool(len(pd.bdate_range(stop_date, stop_date)))) or (stop_date in us_holidays) :
-        stop_date = stop_date - pd.tseries.offsets.BDay(1)
+    col_add = [feat+"-" + str(i) for i in range(1, p_days + 1) for feat in main_feat+["Tmrw_return"] if not(feat == "Close")]
 
-    start = start_date.strftime("%Y-%m-%d")
-    stop = stop_date.strftime("%Y-%m-%d")
-    raw_data = get_raw_data(stock_name, start, stop, features)
+    ft_data = (rw_data.iloc[p_days:]).copy()
 
-    for i in range(1, nb_past_days+1):
-        new_start = (dt.datetime.strptime(start, "%Y-%m-%d") - pd.tseries.offsets.BDay(i)).strftime("%Y-%m-%d")
-        # if it's a holiday, start at the previous working day
-        if new_start in us_holidays:
-            new_start = (dt.datetime.strptime(new_start, "%Y-%m-%d") - pd.tseries.offsets.BDay(1)).strftime("%Y-%m-%d")
-        new_stop = (dt.datetime.strptime(stop, "%Y-%m-%d") - pd.tseries.offsets.BDay(i)).strftime("%Y-%m-%d")
-        # if it's a holiday, stop at the previous working day
-        if new_stop in us_holidays:
-            new_stop = (dt.datetime.strptime(new_stop, "%Y-%m-%d") - pd.tseries.offsets.BDay(1)).strftime("%Y-%m-%d")
+    for feat in col_add:
+        ft_data[feat] = np.nan
+        feat_type = feat.split("-")[0]
+        feat_day = int(feat.split("-")[-1])
+        ft_data[feat] = np.array(rw_data.iloc[(p_days-feat_day):-feat_day][feat_type])
 
-        added_data = get_raw_data(stock_name, new_start, new_stop, features)
-        # Checking the holidays
-        k = len(added_data.index) - len(raw_data.index)
-        if k > 0:
-            # added data is too long, we delete the last row
-            added_data = added_data.drop(added_data.index[len(added_data) - 1])
-        elif k < 0:
-            # added data is not long enough, we start one day before
-            new_start = (dt.datetime.strptime(new_start, "%Y-%m-%d") - pd.tseries.offsets.BDay(1)).strftime("%Y-%m-%d")
-            added_data = get_raw_data(stock_name, new_start, new_stop, features)
+    return ft_data
 
-        added_data.index = raw_data.index
-        added_data.columns = [str(col) + "_" + str(i) for col in added_data.columns]
-        raw_data = pd.concat([raw_data, added_data], axis=1)
 
-    return raw_data
+def add_bucket(ft_data, dist_period, default_bucket=False):
+
+    if default_bucket:
+        return get_ret_class(ft_data, default_limit_classes)
+
+    new_ft_data = ft_data.iloc[dist_period:].copy()
+    new_ft_data[yclass_label] = np.nan
+    new_ft_data["expect_ret"] = np.nan
+    dates = ft_data.index
+    for i, date in enumerate(new_ft_data.index):
+        prev_rets = ft_data.loc[dates[i:i+dist_period], "Tmrw_return"]
+        ret_ranges = np.percentile(prev_rets, quartile_ranges)
+        pred_ret = new_ft_data.loc[date, "Tmrw_return"]
+        curr_class = len(ret_ranges[ret_ranges<=pred_ret])
+        new_ft_data.loc[date, yclass_label] = curr_class
+
+        if curr_class in [0, len(ret_ranges)]:
+            new_ft_data.loc[date, "expect_ret"] = ret_ranges[min(len(ret_ranges)-1, curr_class)]
+
+        else:
+            new_ft_data.loc[date, "expect_ret"] = np.mean(ret_ranges[curr_class-1:curr_class+1])
+
+    return new_ft_data
 
 
 def get_ret_class(raw_data, ret_ranges):
@@ -128,42 +121,30 @@ def get_ret_class(raw_data, ret_ranges):
     return raw_data
 
 
-def frmt_raw_data(stock_name, raw_data, ret_ranges=default_limit_classes):
-
-    """
-    :param stock_name: string
-    :param raw_data: DataFrame
-    :param ret_ranges: array of integers
-    :return: Format the raw history data and add to each observation the actual prediction of close return
-
-    """
-
-    raw_data['Ticker'] = stock_name
-    frmt_data = get_ret_class(raw_data, ret_ranges)
-
-    return frmt_data
-
-
 if __name__ == "__main__":
     stock_name = sys.argv[1]
     start = sys.argv[2]
     stop = sys.argv[3]
-    nb_past_days = sys.argv[4]
-    raw_data = get_data_with_past(stock_name, start, stop, features=main_feat, nb_past_days=nb_past_days)
-    # Getting the features names
-    X_features = raw_data.columns.tolist()
-    y_index = X_features.index('Tmrw_return')
-    del X_features[y_index]
-    # Formatting Data by labeling the returns for the classification
-    frmt_data = frmt_raw_data(stock_name, raw_data, ret_ranges=default_limit_classes)
-
-    print("Done downloading and formatting the input data, saving it...")
-    frmt_data.to_csv("Input_data.csv")
-
-    # Fitting the Random Forest
-    input_X = frmt_data[X_features]
-    input_Y = frmt_data[yclass_label]
-    data_subdivided = subdivide_data(input_X, input_Y, test_size=0.3)
-
-    fit_forest, score, prediction = fitting_forest(data_subdivided, n_estimators=100)
-    print("score of the random forest fitting is {}".format(score))
+    nb_past_days = int(sys.argv[4])
+    dist_period = 100
+    rw_data = get_raw_data(stock_name, start, stop)
+    ft_data = add_feat(rw_data, nb_past_days)
+    new_ft_data = add_bucket(ft_data, dist_period)
+    # raw_data = get_data_with_past(stock_name, start, stop, features=main_feat, nb_past_days=nb_past_days)
+    # # Getting the features names
+    # X_features = raw_data.columns.tolist()
+    # y_index = X_features.index('Tmrw_return')
+    # del X_features[y_index]
+    # # Formatting Data by labeling the returns for the classification
+    # frmt_data = frmt_raw_data(stock_name, raw_data, ret_ranges=default_limit_classes)
+    #
+    # print("Done downloading and formatting the input data, saving it...")
+    # frmt_data.to_csv("Input_data.csv")
+    #
+    # # Fitting the Random Forest
+    # input_X = frmt_data[X_features]
+    # input_Y = frmt_data[yclass_label]
+    # data_subdivided = subdivide_data(input_X, input_Y, test_size=0.3)
+    #
+    # fit_forest, score, prediction = fitting_forest(data_subdivided, n_estimators=100)
+    # print("score of the random forest fitting is {}".format(score))
