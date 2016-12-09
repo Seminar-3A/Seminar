@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import datetime as dt
-import sys
 import holidays
 
 from pandas.io.data import DataReader
@@ -44,6 +43,7 @@ def get_raw_data(stock_name, start, stop, features=main_feat):
     raw_data.Return_Close = raw_data.Return_Close.shift(-1)
     raw_data.columns = [features + ['Tmrw_return']]
     raw_data = raw_data.dropna()
+    raw_data = raw_data.drop_duplicates(['Close'], take_last=True)
 
     return raw_data
 
@@ -81,6 +81,8 @@ def add_bucket(ft_data, dist_period, default_bucket=False):
     new_ft_data = ft_data.iloc[dist_period:].copy()
     new_ft_data[yclass_label] = np.nan
     new_ft_data["expect_ret"] = np.nan
+    #new_ft_data["ret_ranges"] = np.nan
+
     dates = ft_data.index
     for i, date in enumerate(new_ft_data.index):
         prev_rets = ft_data.loc[dates[i:i+dist_period], "Tmrw_return"]
@@ -94,6 +96,8 @@ def add_bucket(ft_data, dist_period, default_bucket=False):
 
         else:
             new_ft_data.loc[date, "expect_ret"] = np.mean(ret_ranges[curr_class-1:curr_class+1])
+
+        #new_ft_data.loc[date, "ret_ranges"] = "-".join(ret_ranges.astype(str))
 
     return new_ft_data
 
@@ -119,32 +123,3 @@ def get_ret_class(raw_data, ret_ranges):
         raw_data.loc[(raw_data['Tmrw_return'] >= ret_level_min)&(raw_data['Tmrw_return'] < ret_level_max), yclass_label] = i+1
 
     return raw_data
-
-
-if __name__ == "__main__":
-    stock_name = sys.argv[1]
-    start = sys.argv[2]
-    stop = sys.argv[3]
-    nb_past_days = int(sys.argv[4])
-    dist_period = 100
-    rw_data = get_raw_data(stock_name, start, stop)
-    ft_data = add_feat(rw_data, nb_past_days)
-    new_ft_data = add_bucket(ft_data, dist_period)
-    # raw_data = get_data_with_past(stock_name, start, stop, features=main_feat, nb_past_days=nb_past_days)
-    # # Getting the features names
-    # X_features = raw_data.columns.tolist()
-    # y_index = X_features.index('Tmrw_return')
-    # del X_features[y_index]
-    # # Formatting Data by labeling the returns for the classification
-    # frmt_data = frmt_raw_data(stock_name, raw_data, ret_ranges=default_limit_classes)
-    #
-    # print("Done downloading and formatting the input data, saving it...")
-    # frmt_data.to_csv("Input_data.csv")
-    #
-    # # Fitting the Random Forest
-    # input_X = frmt_data[X_features]
-    # input_Y = frmt_data[yclass_label]
-    # data_subdivided = subdivide_data(input_X, input_Y, test_size=0.3)
-    #
-    # fit_forest, score, prediction = fitting_forest(data_subdivided, n_estimators=100)
-    # print("score of the random forest fitting is {}".format(score))

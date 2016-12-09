@@ -3,8 +3,9 @@ import numpy as np
 import datetime as dt
 
 import utils_logit
+from utils_lib import check_data_input
 from constantes import quartile_ranges
-from data_extraction import get_raw_data, add_feat,add_bucket
+from data_extraction import get_raw_data, add_feat, add_bucket
 from utils_logit import adjust_ret, norm_input, acc_pred, get_sharpe_per_bckt
 utils_logit = reload(utils_logit)
 
@@ -105,18 +106,9 @@ if __name__ == "__main__":
     stop = sys.argv[3]
     p_days = int(sys.argv[4])
     period = int(sys.argv[5])
-    dist_period = 100
-    if p_days > period:
+    dist_period = int(sys.argv[6])
 
-        raise Exception('Please enter a number of p_day inferior to the training period length \n '
-                        '{} > {} !'.format(p_days, period))
-
-    py_start = dt.datetime.strptime(start,"%Y-%m-%d")
-    py_stop = dt.datetime.strptime(stop, "%Y-%m-%d")
-
-    if (py_stop-py_start).days <=max(period, p_days, dist_period):
-
-        raise Exception('Please enter a date range higher than period parameters \n ')
+    check_data_input(p_days, period, dist_period, start, stop)
 
     # Getting Raw data
     rw_data = get_raw_data(stock_name, start, stop)
@@ -135,6 +127,10 @@ if __name__ == "__main__":
     del X_features[z_index]
 
     new_ft_data['Ticker'] = stock_name
+
+    new_ft_data.to_csv("Input_data.csv")
+    print("Done downloading and formatting the input data, saving it...")
+
     pred_table = calc_pred_data(new_ft_data, period, X_features)
 
     # Evaluation of the accuracy and the sharpe ratio

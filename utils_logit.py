@@ -24,7 +24,7 @@ def norm_input(tmp_table,test_ipt):
         x_tt_norm = np.array([(z_high - mean_h) / std_h, (z_low - mean_l) / std_l,(z_close - mean_c) / std_c])
 
     else:
-        x_tr_norm, x_tt_norm = np.array(tmp_table[['High','Low','Close']]),np.array([z_high,z_low,z_close])
+        x_tr_norm, x_tt_norm = np.array(tmp_table[['High', 'Low', 'Close']]) ,np.array([z_high, z_low, z_close])
 
     return [x_tr_norm,x_tt_norm]
 
