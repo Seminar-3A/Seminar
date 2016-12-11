@@ -1,11 +1,14 @@
 import sys
 import numpy as np
-import pdb
+import datetime as dt
+from sklearn import preprocessing
+from sklearn import linear_model
 
 import utils_logit
-from constantes import min_range, max_range, step_range, main_feat
-from data_extraction import frmt_raw_data, get_raw_data
-from utils_logit import adjust_ret, get_expected_ret_range, acc_pred, sharpe_ratio, get_ret_ranges, norm_input
+from utils_lib import check_data_input
+from constantes import quartile_ranges
+from data_extraction import get_raw_data, add_feat, add_bucket
+from utils_logit import adjust_ret, norm_input, acc_pred, get_sharpe_per_bckt
 utils_logit = reload(utils_logit)
 
 
@@ -67,14 +70,14 @@ def test_lrn(x, y, z, learning_rate=0.01, n_iters=1000):
     # Build the Multiclass Logit Regression Classifier
     classifier = LogisticRegression(input=x, output=y)
 
-    for iter in xrange(n_iters):
+    for _ in xrange(n_iters):
         classifier.train(lr=learning_rate)
         learning_rate *= 0.95
 
     return classifier.predict(z)
 
 
-def calc_pred_data(classified_data, period):
+def calc_pred_data(classified_data, period, features):
 
     """
     :param classified_data: DataFrame
@@ -86,14 +89,23 @@ def calc_pred_data(classified_data, period):
     pred_table = classified_data.iloc[period:]
     pred_table['Pred_Class'] = np.nan
     dates = sorted(classified_data.index)
-
+    ret_ranges = range(len(quartile_ranges))
+    real_feat = [el for el in features if not (el == "Tmrw_Class")]
+    logreg = linear_model.LogisticRegression(C=1e5)
     for i in range(period, tot_days):
-        tmp_table = classified_data.iloc[i-period:i]
-        test_ipt = pred_table[main_feat].iloc[i-period]
-        x_tr_norm, x_tt_norm = norm_input(tmp_table, test_ipt)
-        y_tr = adjust_ret(tmp_table, ret_ranges)
-        pred_arr = test_lrn(x_tr_norm, y_tr, x_tt_norm)
-        pred_table.loc[dates[i], "Pred_Class"] = np.argmax(pred_arr)
+
+        tmp_table = classified_data.iloc[i-period:i+1]
+        x_table = preprocessing.scale(tmp_table[real_feat])
+        x_tr_norm, x_tt_norm = x_table[:-1], x_table[-1]
+        y_train = np.array(tmp_table["Tmrw_Class"].iloc[:-1])
+        logreg.fit(x_tr_norm, y_train)
+        y_test = logreg.predict(x_tt_norm)[0]
+        pred_table.loc[dates[i], "Pred_Class"] = y_test
+        # test_ipt = pred_table[features].iloc[i-period]
+        # x_tr_norm, x_tt_norm = norm_input(tmp_table, test_ipt)
+        # y_tr = adjust_ret(tmp_table, ret_ranges)
+        # pred_arr = test_lrn(x_tr_norm, y_tr, x_tt_norm)
+        # pred_table.loc[dates[i], "Pred_Class"] = np.argmax(pred_arr)
 
     return pred_table
 
@@ -102,24 +114,40 @@ if __name__ == "__main__":
     stock_name = sys.argv[1]
     start = sys.argv[2]
     stop = sys.argv[3]
-    period = int(sys.argv[4])
-    # Building the return ranges
-    ret_ranges = get_ret_ranges(min_range, max_range, step_range)
+    p_days = int(sys.argv[4])
+    period = int(sys.argv[5])
+    dist_period = int(sys.argv[6])
 
-    # Extraction of historical data
-    raw_data = get_raw_data(stock_name, start, stop, features=main_feat)
+    check_data_input(p_days, period, dist_period, start, stop)
 
-    # Format of the historical data by adding the return of the close price
-    # Classification of close return using the ret ranges
-    classified_data = frmt_raw_data(stock_name, start, stop, raw_data, features=main_feat)
+    # Getting Raw data
+    rw_data = get_raw_data(stock_name, start, stop)
 
-    # Prediction of the tomorrow class return
-    pred_table = calc_pred_data(classified_data, period)
+    # Formating data to add 4*p_days features
+    ft_data = add_feat(rw_data, p_days)
+
+    # New format to add bucket
+    new_ft_data = add_bucket(ft_data, dist_period)
+
+    # Getting the feat array
+    X_features = new_ft_data.columns.tolist()
+    y_index = X_features.index('Tmrw_return')
+    del X_features[y_index]
+    z_index = X_features.index('expect_ret')
+    del X_features[z_index]
+
+    new_ft_data['Ticker'] = stock_name
+
+    new_ft_data.to_csv("Input_data.csv")
+    print("Done downloading and formatting the input data, saving it...")
+
+    pred_table = calc_pred_data(new_ft_data, period, X_features)
 
     # Evaluation of the accuracy and the sharpe ratio
     acc = acc_pred(pred_table)
     print("Accuracy (%) : ", acc)
-    new_prd_df = get_expected_ret_range(pred_table, ret_ranges)
-    shrp = sharpe_ratio(new_prd_df)
-    print("Sharpe Ratio : ", shrp)
+
+    for i in range(len(quartile_ranges)+1):
+        shrp = get_sharpe_per_bckt(pred_table, i)
+        print("Sharpe Ratio bucket range number : "+str(i), shrp)
 

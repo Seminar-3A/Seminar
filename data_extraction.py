@@ -1,19 +1,16 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import datetime as dt
-import sys
+import holidays
 
-from pandas import DataFrame
 from pandas.io.data import DataReader
 import pandas as pd
 import numpy as np
 
-from constantes import main_feat, default_limit_classes
-from utils_rf import subdivide_data
-from random_forest import fitting_forest
-
+from constantes import main_feat, default_limit_classes, yclass_label, quartile_ranges
 
 pd.set_option('chained_assignment', None)
+us_holidays = holidays.UnitedStates()
 
 
 def get_raw_data(stock_name, start, stop, features=main_feat):
@@ -31,6 +28,9 @@ def get_raw_data(stock_name, start, stop, features=main_feat):
     stop_date = dt.datetime.strptime(stop, "%Y-%m-%d")
     # add a working day to have tomorrow's return
     stop_date = stop_date + pd.tseries.offsets.BDay(1)
+    # if it's a holiday, stop at the next working day
+    if stop_date in us_holidays:
+        stop_date = stop_date + pd.tseries.offsets.BDay(1)
 
     dr = DataReader(stock_name, 'yahoo', start_date, stop_date)
 
@@ -43,44 +43,63 @@ def get_raw_data(stock_name, start, stop, features=main_feat):
     raw_data.Return_Close = raw_data.Return_Close.shift(-1)
     raw_data.columns = [features + ['Tmrw_return']]
     raw_data = raw_data.dropna()
+    raw_data = raw_data.drop_duplicates(['Close'], take_last=True)
 
     return raw_data
 
 
-def get_data_with_past(stock_name, start, stop, features=main_feat, nb_past_days = 0):
-    """
-    :param stock_name: string
-    :param start: string
-    :param stop: string
-    :param features: array of strings
-    :param nb_past_days : int
-    :return: Extract History prices from start until stop, filtrate by main features and add past days data as variables
+def add_feat(rw_data, p_days):
 
     """
+    :param rw_data:
+    :param p_days:
+    :param features:
+    :return:
+    """
 
-    start_date = dt.datetime.strptime(start, "%Y-%m-%d")
-    # if it's a holiday, start at the next working day
-    if not bool(len(pd.bdate_range(start_date, start_date))):
-        start_date = start_date + pd.tseries.offsets.BDay(1)
+    if p_days == 0:
+        return rw_data
 
-    stop_date = dt.datetime.strptime(stop, "%Y-%m-%d")
-    # if it's a holiday, stop at the previous working day
-    if not bool(len(pd.bdate_range(stop_date, stop_date))):
-        stop_date = stop_date - pd.tseries.offsets.BDay(1)
+    col_add = [feat+"-" + str(i) for i in range(1, p_days + 1) for feat in main_feat+["Tmrw_return"] if not(feat == "Close")]
 
-    start = start_date.strftime("%Y-%m-%d")
-    stop = stop_date.strftime("%Y-%m-%d")
-    raw_data = get_raw_data(stock_name, start, stop, features)
+    ft_data = (rw_data.iloc[p_days:]).copy()
 
-    for i in range(1, nb_past_days+1):
-        new_start = (dt.datetime.strptime(start, "%Y-%m-%d") - pd.tseries.offsets.BDay(i)).strftime("%Y-%m-%d")
-        new_stop = (dt.datetime.strptime(stop, "%Y-%m-%d") - pd.tseries.offsets.BDay(i)).strftime("%Y-%m-%d")
-        added_data = get_raw_data(stock_name, new_start, new_stop, features)
-        added_data.index = raw_data.index
-        added_data.columns = [str(col) + "_" + str(i) for col in added_data.columns]
-        raw_data = pd.concat([raw_data, added_data], axis=1)
+    for feat in col_add:
+        ft_data[feat] = np.nan
+        feat_type = feat.split("-")[0]
+        feat_day = int(feat.split("-")[-1])
+        ft_data[feat] = np.array(rw_data.iloc[(p_days-feat_day):-feat_day][feat_type])
 
-    return raw_data
+    return ft_data
+
+
+def add_bucket(ft_data, dist_period, default_bucket=False):
+
+    if default_bucket:
+        return get_ret_class(ft_data, default_limit_classes)
+
+    new_ft_data = ft_data.iloc[dist_period:].copy()
+    new_ft_data[yclass_label] = np.nan
+    new_ft_data["expect_ret"] = np.nan
+    #new_ft_data["ret_ranges"] = np.nan
+
+    dates = ft_data.index
+    for i, date in enumerate(new_ft_data.index):
+        prev_rets = ft_data.loc[dates[i:i+dist_period], "Tmrw_return"]
+        ret_ranges = np.percentile(prev_rets, quartile_ranges)
+        pred_ret = new_ft_data.loc[date, "Tmrw_return"]
+        curr_class = len(ret_ranges[ret_ranges<=pred_ret])
+        new_ft_data.loc[date, yclass_label] = curr_class
+
+        if curr_class in [0, len(ret_ranges)]:
+            new_ft_data.loc[date, "expect_ret"] = ret_ranges[min(len(ret_ranges)-1, curr_class)]
+
+        else:
+            new_ft_data.loc[date, "expect_ret"] = np.mean(ret_ranges[curr_class-1:curr_class+1])
+
+        #new_ft_data.loc[date, "ret_ranges"] = "-".join(ret_ranges.astype(str))
+
+    return new_ft_data
 
 
 def get_ret_class(raw_data, ret_ranges):
@@ -92,75 +111,15 @@ def get_ret_class(raw_data, ret_ranges):
     The class zero correspond to the lowest return level
 
     """
-    raw_data['Tmrw_Class'] = np.nan
+    raw_data[yclass_label] = np.nan
     # We label diffently the following extreme return values :
     # The returns below the lowest return range and the returns above the highest return range
-    raw_data.loc[(raw_data['Tmrw_return'] < ret_ranges[0]),'Tmrw_Class'] = 0
-    raw_data.loc[(raw_data['Tmrw_return'] >= ret_ranges[-1]), 'Tmrw_Class'] = len(ret_ranges)
+    raw_data.loc[(raw_data['Tmrw_return'] < ret_ranges[0]), yclass_label] = 0
+    raw_data.loc[(raw_data['Tmrw_return'] >= ret_ranges[-1]), yclass_label] = len(ret_ranges)
 
     for i in range(len(ret_ranges)-1):
         ret_level_min = ret_ranges[i]
         ret_level_max = ret_ranges[i+1]
-        raw_data.loc[(raw_data['Tmrw_return'] >= ret_level_min)&(raw_data['Tmrw_return'] < ret_level_max), 'Tmrw_Class'] = i+1
+        raw_data.loc[(raw_data['Tmrw_return'] >= ret_level_min)&(raw_data['Tmrw_return'] < ret_level_max), yclass_label] = i+1
 
     return raw_data
-
-
-def frmt_raw_data(stock_name, start, stop, ret_ranges=default_limit_classes, raw_data=DataFrame(),features=main_feat):
-
-    """
-    :param stock_name: string
-    :param start: string
-    :param stop: string
-    :param raw_data: DataFrame
-    :param features: array of strings
-    :return: Format the raw history data and add to each observation the actual prediction of close return
-
-    """
-    if raw_data.empty:
-        raw_data = get_raw_data(stock_name, start, stop,features)
-
-    raw_data['Ticker'] = stock_name
-    frmt_data = get_ret_class(raw_data, ret_ranges)
-
-    return frmt_data
-
-
-def get_multiple_inputs(stock_list, start, stop):
-    """
-
-    :param stock_list: list of stocks
-    :param start:
-    :param stop:
-    :param features:
-    :return:
-    """
-
-    frames = [frmt_raw_data(stock_list[i], start, stop,
-                            ret_ranges=default_limit_classes,
-                            raw_data=DataFrame(),
-                            features=main_feat) for i in range(len(stock_list))]
-
-    df_input = pd.concat(frames)
-
-    return df_input
-
-if __name__ == "__main__":
-    stock_name = sys.argv[1]
-    start = sys.argv[2]
-    stop = sys.argv[3]
-    raw_data = get_raw_data(stock_name, start, stop, features=main_feat)
-    frmt_data = frmt_raw_data(stock_name, start, stop,
-                              ret_ranges=default_limit_classes,
-                              raw_data=raw_data,
-                              features=main_feat)
-    print("Done downloading and formatting the input data, saving it...")
-    frmt_data.to_csv("Input_data.csv")
-
-    # Fitting the Random Forest
-    input_X = frmt_data[main_feat]
-    input_Y = frmt_data['variation_classes']
-    data_subdivided = subdivide_data(input_X, input_Y, test_size=0.3)
-
-    fit_forest, score, prediction = fitting_forest(data_subdivided, n_estimators=100)
-    print("score of the random forest fitting is {}".format(score))
