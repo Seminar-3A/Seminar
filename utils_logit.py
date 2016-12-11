@@ -76,7 +76,7 @@ def sharpe_ratio(new_prd_df):
     if std_ > 0:
         return np.sqrt(stats_df.shape[0])*(np.abs(mean_)/std_)
 
-    return np.nan
+    return "No elements predicted in this bucket"
 
 
 def get_ret_ranges(min_range, max_range, step_range):
@@ -120,4 +120,4 @@ def get_sharpe_per_bckt(pred_table,bucket_pos):
     if std_ > 0:
         return np.sqrt(stats_df.shape[0]) * (np.abs(mean_) / std_)
 
-    return np.nan
+    return "No elements predicted from this range"
