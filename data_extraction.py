@@ -7,7 +7,7 @@ from pandas.io.data import DataReader
 import pandas as pd
 import numpy as np
 
-from constantes import main_feat, default_limit_classes, yclass_label,quartile_ranges
+from constantes import main_feat, default_limit_classes, yclass_label, quartile_ranges
 
 pd.set_option('chained_assignment', None)
 us_holidays = holidays.UnitedStates()

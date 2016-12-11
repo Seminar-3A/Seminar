@@ -1,6 +1,8 @@
 import sys
 import numpy as np
 import datetime as dt
+from sklearn import preprocessing
+from sklearn import linear_model
 
 import utils_logit
 from utils_lib import check_data_input
@@ -88,14 +90,22 @@ def calc_pred_data(classified_data, period, features):
     pred_table['Pred_Class'] = np.nan
     dates = sorted(classified_data.index)
     ret_ranges = range(len(quartile_ranges))
+    real_feat = [el for el in features if not (el == "Tmrw_Class")]
+    logreg = linear_model.LogisticRegression(C=1e5)
     for i in range(period, tot_days):
 
-        tmp_table = classified_data.iloc[i-period:i]
-        test_ipt = pred_table[features].iloc[i-period]
-        x_tr_norm, x_tt_norm = norm_input(tmp_table, test_ipt)
-        y_tr = adjust_ret(tmp_table, ret_ranges)
-        pred_arr = test_lrn(x_tr_norm, y_tr, x_tt_norm)
-        pred_table.loc[dates[i], "Pred_Class"] = np.argmax(pred_arr)
+        tmp_table = classified_data.iloc[i-period:i+1]
+        x_table = preprocessing.scale(tmp_table[real_feat])
+        x_tr_norm, x_tt_norm = x_table[:-1], x_table[-1]
+        y_train = np.array(tmp_table["Tmrw_Class"].iloc[:-1])
+        logreg.fit(x_tr_norm, y_train)
+        y_test = logreg.predict(x_tt_norm)[0]
+        pred_table.loc[dates[i], "Pred_Class"] = y_test
+        # test_ipt = pred_table[features].iloc[i-period]
+        # x_tr_norm, x_tt_norm = norm_input(tmp_table, test_ipt)
+        # y_tr = adjust_ret(tmp_table, ret_ranges)
+        # pred_arr = test_lrn(x_tr_norm, y_tr, x_tt_norm)
+        # pred_table.loc[dates[i], "Pred_Class"] = np.argmax(pred_arr)
 
     return pred_table
 
@@ -139,5 +149,5 @@ if __name__ == "__main__":
 
     for i in range(len(quartile_ranges)+1):
         shrp = get_sharpe_per_bckt(pred_table, i)
-        print("Sharpe Ratio bucket number : "+str(i), shrp)
+        print("Sharpe Ratio bucket range number : "+str(i), shrp)
 
