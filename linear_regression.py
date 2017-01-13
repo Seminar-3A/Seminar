@@ -1,13 +1,12 @@
 import sys
 import numpy as np
-import datetime as dt
 
 from sklearn import linear_model
 from sklearn import preprocessing
 
-from data_extraction import get_raw_data, add_feat, add_bucket
+from data_extraction import get_raw_data, add_feat
 from utils_lib import check_data_input
-from constantes import yclass_label, y_reg_label
+from constantes import y_reg_label
 import pylab as pl
 
 
@@ -45,7 +44,7 @@ def fitting_linear(input_X, input_Y, period, pos_threshold=0.01):
 
         print('Squared Error at {} : {}'.format(date_i, square_error))
         acc = np.sign(predicted_y*y_test)[0]
-        print ("Hit Ratio (1: good trend predicted) {}".format(acc))
+        print ("Hit Ratio (1: good trend prediction) {}".format(acc))
         errors.append(square_error)
         accuracy.append(acc)
 
@@ -64,7 +63,7 @@ def fitting_linear(input_X, input_Y, period, pos_threshold=0.01):
 
 
 if __name__ == "__main__":
-    
+
     stock_name = sys.argv[1]
     start = sys.argv[2]
     stop = sys.argv[3]

@@ -1,6 +1,5 @@
 import sys
 import numpy as np
-import datetime as dt
 
 from sklearn.ensemble import RandomForestClassifier
 from sklearn import preprocessing
@@ -36,7 +35,7 @@ def fitting_forest(input_X, input_Y, period, n_estimators=100):
         pred_table.loc[dates[i], "Pred_Class"] = forest.predict(x_test)
 
         score = forest.score(x_test, y_test)
-        #print('Score error: {}'.format(score))
+        print('Hit Ratio (1: good trend prediction) {}'.format(score))
         scores.append(score)
 
     accuracy = np.array(scores).mean()
