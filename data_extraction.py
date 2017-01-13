@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import datetime as dt
 import holidays
+import os.path
 
 from pandas.io.data import DataReader
 import pandas as pd
@@ -13,16 +14,41 @@ pd.set_option('chained_assignment', None)
 us_holidays = holidays.UnitedStates()
 
 
-def get_raw_data(stock_name, start, stop, features=main_feat):
+def get_raw_data(stock_name, start, stop):
 
     """
     :param stock_name: string
     :param start: string
     :param stop: string
     :param features: array of strings
-    :return: Extract History prices from start until stop and filtrate by main features
+    :return: Extract History prices from start until stop and filtrate by main features from the current folder
 
     """
+    flename = "_".join([stock_name, start, stop])
+
+    if os.path.isfile(flename + ".csv"):
+        raw_data = pd.read_csv(flename + ".csv")
+        raw_data.index = raw_data["Date"]
+        raw_data = raw_data.drop("Date",1)
+        return raw_data
+
+    print("The parameters are not in the database !! ")
+    return pd.DataFrame()
+
+def get_YF_raw_data(stock_name, start, stop, features=main_feat):
+
+    """
+    :param stock_name: string
+    :param start: string
+    :param stop: string
+    :param features: array of strings
+    :return: Extract History prices from start until stop and filtrate by main features using Yahoo Finance
+
+    """
+    flename = "_".join([stock_name, start, stop])
+
+    if os.path.isfile(flename + ".csv"):
+        return pd.read_csv(flename + ".csv")
 
     start_date = dt.datetime.strptime(start, "%Y-%m-%d")
     stop_date = dt.datetime.strptime(stop, "%Y-%m-%d")
@@ -44,6 +70,8 @@ def get_raw_data(stock_name, start, stop, features=main_feat):
     raw_data.columns = [features + ['Tmrw_return']]
     raw_data = raw_data.dropna()
     raw_data = raw_data.drop_duplicates(['Close'], take_last=True)
+
+    raw_data.to_csv(flename + ".csv")
 
     return raw_data
 

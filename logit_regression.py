@@ -1,6 +1,5 @@
 import sys
 import numpy as np
-import datetime as dt
 from sklearn import preprocessing
 from sklearn import linear_model
 
@@ -8,7 +7,7 @@ import utils_logit
 from utils_lib import check_data_input
 from constantes import quartile_ranges
 from data_extraction import get_raw_data, add_feat, add_bucket
-from utils_logit import adjust_ret, norm_input, acc_pred, get_sharpe_per_bckt
+from utils_logit import acc_pred, get_sharpe_per_bckt
 utils_logit = reload(utils_logit)
 
 
@@ -101,13 +100,10 @@ def calc_pred_data(classified_data, period, features):
         logreg.fit(x_tr_norm, y_train)
         y_test = logreg.predict(x_tt_norm)[0]
         pred_table.loc[dates[i], "Pred_Class"] = y_test
-        # test_ipt = pred_table[features].iloc[i-period]
-        # x_tr_norm, x_tt_norm = norm_input(tmp_table, test_ipt)
-        # y_tr = adjust_ret(tmp_table, ret_ranges)
-        # pred_arr = test_lrn(x_tr_norm, y_tr, x_tt_norm)
-        # pred_table.loc[dates[i], "Pred_Class"] = np.argmax(pred_arr)
 
     return pred_table
+
+
 
 if __name__ == "__main__":
 

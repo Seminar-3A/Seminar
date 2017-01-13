@@ -7,7 +7,7 @@ from sklearn import preprocessing
 
 from data_extraction import get_raw_data, add_feat, add_bucket
 from utils_lib import check_data_input
-from constantes import quartile_ranges, yclass_label
+from constantes import yclass_label
 
 
 def fitting_forest(input_X, input_Y, period, n_estimators=100):
@@ -36,7 +36,7 @@ def fitting_forest(input_X, input_Y, period, n_estimators=100):
         pred_table.loc[dates[i], "Pred_Class"] = forest.predict(x_test)
 
         score = forest.score(x_test, y_test)
-        print('Score error: {}'.format(score))
+        #print('Score error: {}'.format(score))
         scores.append(score)
 
     accuracy = np.array(scores).mean()
