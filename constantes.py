@@ -6,3 +6,4 @@ min_range = -0.02
 max_range = 0.02
 step_range = 0.005
 yclass_label = 'Tmrw_Class'
+y_reg_label = 'Tmrw_return'
