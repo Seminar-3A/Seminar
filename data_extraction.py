@@ -29,11 +29,12 @@ def get_raw_data(stock_name, start, stop):
     if os.path.isfile(flename + ".csv"):
         raw_data = pd.read_csv(flename + ".csv")
         raw_data.index = raw_data["Date"]
-        raw_data = raw_data.drop("Date",1)
+        raw_data = raw_data.drop("Date", 1)
         return raw_data
+    else:
+        print("The parameters are not in the database !! ")
+        return get_YF_raw_data(stock_name, start, stop, features=main_feat)
 
-    print("The parameters are not in the database !! ")
-    return pd.DataFrame()
 
 def get_YF_raw_data(stock_name, start, stop, features=main_feat):
 
