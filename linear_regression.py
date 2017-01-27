@@ -20,7 +20,9 @@ def fitting_linear(input_X, input_Y, period, calibration_period, regression_type
     pred_table["Tmrw_return"] = input_Y
     dates = sorted(input_X.index)
 
-    if type == 'ridge':
+    if regression_type.lower() == 'ridge':
+        reg = linear_model.Ridge(alpha=alpha)
+    elif regression_type.lower() == 'lasso':
         reg = linear_model.Ridge(alpha=alpha)
     else:
         reg = linear_model.LinearRegression()
@@ -48,10 +50,10 @@ def fitting_linear(input_X, input_Y, period, calibration_period, regression_type
 
         square_error = ((predicted_y - y_test) ** 2)[0]
 
-        # print('Squared Error at {} : {}'.format(dates[i-calibration_period], square_error))
+        print('Squared Error at {} : {}'.format(dates[i-calibration_period], square_error))
         acc = np.sign(predicted_y*y_test)[0]
 
-        # print ("Hit Ratio (1: good trend prediction) {}".format(acc))
+        print ("Hit Ratio (1: good trend prediction) {}".format(acc))
         errors.append(square_error)
         accuracy.append(acc)
 
@@ -76,7 +78,7 @@ if __name__ == "__main__":
     stocks_df = pd.read_csv(stocks_list_path)
 
     regression_type = sys.argv[1]
-    alpha = sys.argv[2]
+    alpha = float(sys.argv[2])
     stock_name = sys.argv[3]
     start = sys.argv[4]
     stop = sys.argv[5]
@@ -121,4 +123,4 @@ if __name__ == "__main__":
         pred_table['period'] = str(period)
 
         if plot_bt:
-            plot_pnl(plot_dir, pred_table)
+            plot_pnl(plot_dir, pred_table, regression_type)

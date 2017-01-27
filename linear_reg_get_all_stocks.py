@@ -14,7 +14,7 @@ from constantes import y_reg_label, calibration_period
 
 
 
-def fitting_linear(input_X, input_Y, period, calibration_period,pos_threshold=0.01):
+def fitting_linear(input_X, input_Y, period, calibration_period, pos_threshold=0.01):
     print('Fitting the linear regression for the {}'.format(set))
     pred_table = input_X.iloc[-calibration_period:]
     pred_table['Expected_return'] = np.nan

@@ -61,7 +61,7 @@ def get_stats_strat(trade_hist):
     return stats_strat
 
 
-def plot_pnl(stock_dir, pred_table):
+def plot_pnl(stock_dir, pred_table, regression_type):
 
     pl.close('all')
     trade_hist = pred_table[~(pred_table["pnl"] == 0)]
@@ -83,7 +83,7 @@ def plot_pnl(stock_dir, pred_table):
     stock_name = trade_hist["Ticker"][0]
     p_days = trade_hist["p_days"][0]
     period = trade_hist["period"][0]
-    filename = "_".join([stock_name, start_date, end_date, p_days, period]) + ".png"
+    filename = "_".join([stock_name, start_date, end_date, p_days, period, regression_type]) + ".png"
     pl.title(stock_name + " " + start_date + " / " + end_date + " FEAT " + p_days
              + " TRAIN " + period + "\n" + " BP " + bp + " HR " + hr + "% " + " SR " + sharpe)
 
