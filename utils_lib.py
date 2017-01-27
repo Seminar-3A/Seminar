@@ -11,15 +11,17 @@ def create_dir(path, filename):
         os.makedirs(directory)
     return directory
 
-def check_unavailable_data(new_ft_data,calibration_period,period):
 
-    if len(new_ft_data)<(calibration_period+period):
+def check_unavailable_data(new_ft_data, calibration_period, period):
+
+    if len(new_ft_data) < (calibration_period + period):
 
         print("The history price is not sufficient to do the backtest"+"\n"
-              +"Please change the training period or the number of features")
+              + "Please change the training period or the number of features")
 
         return True
     return False
+
 
 def check_data_input(p_days, period, dist_period, start, stop):
 
@@ -74,16 +76,16 @@ def plot_pnl(stock_dir, pred_table):
     bp = stats_strat["bp_per_trade"]
     start_date = trade_hist["pnl"].index[0]
     end_date = trade_hist["pnl"].index[-1]
+
     if type(trade_hist["pnl"].index[0]) == pd.tslib.Timestamp:
-        start_date, end_date  = str(start_date.date()), str(end_date.date())
+        start_date, end_date = str(start_date.date()), str(end_date.date())
+
     stock_name = trade_hist["Ticker"][0]
     p_days = trade_hist["p_days"][0]
     period = trade_hist["period"][0]
-    filename = "_".join([stock_name, start_date, end_date,p_days,period])+".png"
-    pl.title(stock_name + " "+start_date+ " / "+end_date+" FEAT "+p_days
-            +" TRAIN "+period+"\n"+" BP " +bp+ " HR "+hr+"% "+" SR "+sharpe)
-
+    filename = "_".join([stock_name, start_date, end_date, p_days, period]) + ".png"
+    pl.title(stock_name + " " + start_date + " / " + end_date + " FEAT " + p_days
+             + " TRAIN " + period + "\n" + " BP " + bp + " HR " + hr + "% " + " SR " + sharpe)
 
     pl.savefig(stock_dir+"/"+filename)
-
     #pl.show()
