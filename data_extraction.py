@@ -2,13 +2,14 @@
 # -*- coding: utf-8 -*-
 import datetime as dt
 import holidays
-import os.path
+import os
 
 from pandas.io.data import DataReader
 import pandas as pd
 import numpy as np
 
-from constantes import main_feat, default_limit_classes, yclass_label, quartile_ranges
+from constantes import main_feat, default_limit_classes, yclass_label, quartile_ranges, calibration_period
+from utils_lib import create_dir
 
 pd.set_option('chained_assignment', None)
 us_holidays = holidays.UnitedStates()
@@ -24,7 +25,9 @@ def get_raw_data(stock_name, start, stop):
     :return: Extract History prices from start until stop and filtrate by main features from the current folder
 
     """
-    flename = "_".join([stock_name, start, stop])
+    cwd = os.getcwd()
+    universe_dir = create_dir(cwd, "stocks_hist")
+    flename = universe_dir+"/"+"_".join([stock_name, start, stop])
 
     if os.path.isfile(flename + ".csv"):
         raw_data = pd.read_csv(flename + ".csv")
@@ -46,7 +49,10 @@ def get_YF_raw_data(stock_name, start, stop, features=main_feat):
     :return: Extract History prices from start until stop and filtrate by main features using Yahoo Finance
 
     """
-    flename = "_".join([stock_name, start, stop])
+
+    cwd = os.getcwd()
+    universe_dir = create_dir(cwd, "stocks_hist")
+    flename = universe_dir + "/" + "_".join([stock_name, start, stop])
 
     if os.path.isfile(flename + ".csv"):
         return pd.read_csv(flename + ".csv")
@@ -61,6 +67,7 @@ def get_YF_raw_data(stock_name, start, stop, features=main_feat):
 
     dr = DataReader(stock_name, 'yahoo', start_date, stop_date)
 
+    dr["Close"] = dr["Adj Close"]
     raw_data = dr[features]
     raw_data['Return_Close'] = 0
     dates = raw_data.index
@@ -72,8 +79,10 @@ def get_YF_raw_data(stock_name, start, stop, features=main_feat):
     raw_data = raw_data.dropna()
     raw_data = raw_data.drop_duplicates(['Close'], take_last=True)
 
-    raw_data.to_csv(flename + ".csv")
+    if len(raw_data) > calibration_period:
+        raw_data.to_csv(flename + ".csv")
 
+    print("The data aren't enough to backtest for one year !")
     return raw_data
 
 
