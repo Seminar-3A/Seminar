@@ -13,14 +13,17 @@ from utils_lib import check_data_input, plot_pnl, create_dir, check_unavailable_
 from constantes import y_reg_label, calibration_period
 
 
-def fitting_linear(input_X, input_Y, period, calibration_period, pos_threshold=0.01):
+def fitting_linear(input_X, input_Y, period, calibration_period, regression_type, alpha, pos_threshold=0.01):
     print('Fitting the linear regression for the {}'.format(set))
     pred_table = input_X.iloc[-calibration_period:]
     pred_table['Expected_return'] = np.nan
     pred_table["Tmrw_return"] = input_Y
     dates = sorted(input_X.index)
 
-    reg = linear_model.LinearRegression()
+    if type == 'ridge':
+        reg = linear_model.Ridge(alpha=alpha)
+    else:
+        reg = linear_model.LinearRegression()
     errors = []
     accuracy = []
 
@@ -72,12 +75,14 @@ if __name__ == "__main__":
     stocks_list_path = "universe.csv"
     stocks_df = pd.read_csv(stocks_list_path)
 
-    stock_name = sys.argv[1]
-    start = sys.argv[2]
-    stop = sys.argv[3]
-    p_days = int(sys.argv[4])
-    period = int(sys.argv[5])
-    plot_bt = sys.argv[6] == "plt"
+    regression_type = sys.argv[1]
+    alpha = sys.argv[2]
+    stock_name = sys.argv[3]
+    start = sys.argv[4]
+    stop = sys.argv[5]
+    p_days = int(sys.argv[6])
+    period = int(sys.argv[7])
+    plot_bt = sys.argv[8] == "plt"
     dist_period = 0
 
     print("Backtest " + stock_name)
@@ -108,7 +113,8 @@ if __name__ == "__main__":
         input_X = new_ft_data[X_features]
         input_Y = new_ft_data[y_reg_label]
 
-        score, mse, pred_table = fitting_linear(input_X, input_Y, period, calibration_period, pos_threshold=0)
+        score, mse, pred_table = fitting_linear(input_X, input_Y, period, calibration_period,
+                                                regression_type, alpha, pos_threshold=0)
 
         pred_table["Ticker"] = stock_name
         pred_table['p_days'] = str(p_days)
