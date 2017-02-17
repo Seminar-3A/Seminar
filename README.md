@@ -19,7 +19,7 @@ Example for logistique regression on Yahoo stock:
 
 The current program for linear regression requires the following parameters:
 
-  -regression type
+  -regression type (linear, ridge or lasso)
   -alpha of the Ridge or lasso regression (0 if linear)
   -stock name
   -start and end date of the backtest

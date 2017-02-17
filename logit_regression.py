@@ -104,7 +104,6 @@ def calc_pred_data(classified_data, period, features):
     return pred_table
 
 
-
 if __name__ == "__main__":
 
     stock_name = sys.argv[1]

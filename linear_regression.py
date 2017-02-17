@@ -23,7 +23,7 @@ def fitting_linear(input_X, input_Y, period, calibration_period, regression_type
     if regression_type.lower() == 'ridge':
         reg = linear_model.Ridge(alpha=alpha)
     elif regression_type.lower() == 'lasso':
-        reg = linear_model.Ridge(alpha=alpha)
+        reg = linear_model.Lasso(alpha=alpha)
     else:
         reg = linear_model.LinearRegression()
     errors = []
