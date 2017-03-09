@@ -2,7 +2,7 @@ import datetime as dt
 import numpy as np
 import pylab as pl
 import pandas as pd
-import os, pickle
+import os
 
 
 def create_dir(path, filename):
@@ -90,13 +90,58 @@ def plot_pnl(stock_dir, pred_table, regression_type):
     pl.savefig(stock_dir+"/"+filename)
     #pl.show()
 
+def get_stats_all(pnl_daily):
 
-def dump_file(variable,path, filename):
-    with open(path+"/"+filename+'.pk', 'wb') as f:
-        pickle.dump(variable, f)
+    stats_strat = {}
+    pnl_cumsum = np.array(pnl_daily).cumsum()
+    imax = np.argmax(np.maximum.accumulate(pnl_cumsum)-pnl_cumsum)
+    jmax = np.argmax(pnl_cumsum[:imax])
+    max_drawdowns = round(100*abs(pnl_cumsum[imax]-pnl_cumsum[jmax])/abs(pnl_cumsum[jmax]), 2)
+    hit_ratio = round(100*np.mean(pnl_daily> 0), 2)
+    mean_ = np.mean(pnl_daily)
+    std_ = np.std(pnl_daily)
+    if std_ > 0:
+        sharpe_ratio = np.sqrt(pnl_daily.shape[0]) * (mean_ / std_)
+        sharpe_ratio = round(sharpe_ratio, 2)
+    else:
+        sharpe_ratio = np.nan
 
-def load_file(path, filename):
-    with open(path+"/"+filename+'.pk', 'rb') as f:
-        variable = pickle.load(f)
+    stats_strat["max_drawdowns"] = str(max_drawdowns)
+    stats_strat["hit_ratio"] = str(hit_ratio)
+    stats_strat["sharpe_ratio"] = str(sharpe_ratio)
 
-    return variable
+    return stats_strat
+def plot_pnl_all(path,filename):
+    pl.close('all')
+    params_arr = filename.split("_")
+    regression_type, alpha = params_arr[0], params_arr[1]
+    p_days, period = params_arr[4],params_arr[5]
+
+    pnl_all_stocks = load_df(path,"pnl_"+filename)
+    pnl_daily = pnl_all_stocks.sum(axis=1)
+    stats_strat = get_stats_all(pnl_daily)
+    pl.plot(pnl_daily.cumsum(),color="blue")
+    pl.scatter(range(len(pnl_daily)), np.cumsum(pnl_daily), color="blue")
+    pl.xlim([0, len(pnl_daily)])
+    pl.ylabel("Cumulated P&L", labelpad=0.01)
+    hr = stats_strat["hit_ratio"]
+    sharpe = stats_strat["sharpe_ratio"]
+    mdd = stats_strat["max_drawdowns"]
+    start_date = pnl_daily.index[0]
+    end_date = pnl_daily.index[-1]
+    plt_flename = "_".join([start_date, end_date, p_days, period, regression_type]) + ".png"
+    pl.title(start_date + " / " + end_date + " FEAT " + p_days
+             + " TRAIN " + period + "\n" + " MDD " + mdd + "% "+
+             " HR " + hr + "% " + " SR " + sharpe)
+    pl.savefig(path + "/" + plt_flename)
+    # pl.show()
+
+    return
+
+
+def dump_df(df,path, filename):
+    df.to_pickle(path + "/"+filename+".pk")
+
+def load_df(path, filename):
+    df = pd.read_pickle(path+'/'+filename+'.pk')
+    return df
