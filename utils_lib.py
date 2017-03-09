@@ -2,7 +2,7 @@ import datetime as dt
 import numpy as np
 import pylab as pl
 import pandas as pd
-import os
+import os, pickle
 
 
 def create_dir(path, filename):
@@ -89,3 +89,14 @@ def plot_pnl(stock_dir, pred_table, regression_type):
 
     pl.savefig(stock_dir+"/"+filename)
     #pl.show()
+
+
+def dump_file(variable,path, filename):
+    with open(path+"/"+filename+'.pk', 'wb') as f:
+        pickle.dump(variable, f)
+
+def load_file(path, filename):
+    with open(path+"/"+filename+'.pk', 'rb') as f:
+        variable = pickle.load(f)
+
+    return variable
